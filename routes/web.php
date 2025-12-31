@@ -5,8 +5,46 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\LeadController;
 use App\Http\Controllers\Admin\DemoRequestController;
+
+use App\Http\Controllers\MenuController;
+use App\Http\Controllers\MenuSyncController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\AboutController;
+use App\Http\Controllers\ContactController;
+use App\Http\Controllers\NewsletterController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProfileController;
 use Inertia\Inertia;
+use App\Http\Controllers\CheckoutController;
+
+// Checkout Routes
+Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
+Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+Route::get('/order/{orderNumber}/confirmation', [CheckoutController::class, 'confirmation'])->name('order.confirmation');
+
+// Authentication Routes
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::post('/auth/send-otp', [AuthController::class, 'sendOTP']);
+Route::post('/auth/verify-otp', [AuthController::class, 'verifyOTP']);
+Route::post('/auth/complete-profile', [AuthController::class, 'completeProfile']);
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
+
+// Profile Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/addresses', [ProfileController::class, 'storeAddress']);
+    Route::put('/profile/addresses/{address}', [ProfileController::class, 'updateAddress']);
+    Route::delete('/profile/addresses/{address}', [ProfileController::class, 'deleteAddress']);
+});
+
+// Checkout Route
+Route::get('/checkout', function () {
+    return Inertia::render('Checkout', [
+        'auth' => ['user' => Auth::user()],
+    ]);
+})->name('checkout');
 
 /*
 |--------------------------------------------------------------------------
@@ -14,7 +52,43 @@ use Inertia\Inertia;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', [WebsiteController::class, 'index'])->name('home');
+// API endpoint for webhook/external sync (optional)
+Route::post('/api/menu/sync', [MenuSyncController::class, 'apiSync']);
+Route::get('/api/menu/sync/status', [MenuSyncController::class, 'status']);
+
+
+Route::prefix('admin/sync')->middleware(['auth'])->group(function () {
+    Route::post('/all', [MenuSyncController::class, 'syncAll']);
+    Route::post('/menu', [MenuSyncController::class, 'syncMenu']);
+    Route::post('/addons', [MenuSyncController::class, 'syncAddons']);
+    Route::get('/stats', [MenuSyncController::class, 'stats']);
+    Route::get('/last-sync', [MenuSyncController::class, 'lastSync']);
+});
+
+Route::get('/admin/menu/sync', [MenuSyncController::class, 'index'])->name('admin.menu.sync');
+    Route::post('/admin/menu/sync', [MenuSyncController::class, 'sync'])->name('admin.menu.sync.trigger');
+
+// Public menu route (uses database)
+Route::get('/menu', [MenuController::class, 'index'])->name('menu.index');
+
+Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// About Us
+Route::get('/about', [AboutController::class, 'index'])->name('about');
+
+// Contact
+Route::get('/contact', [ContactController::class, 'index'])->name('contact');
+Route::post('/contact/submit', [ContactController::class, 'submit'])->name('contact.submit');
+
+// Menu
+//Route::get('/menu', [MenuController::class, 'index'])->name('menu');
+
+// Newsletter subscription
+Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])->name('newsletter.subscribe');
+
+// Optional: Add these routes later
+
+
 Route::get('/features', [WebsiteController::class, 'features'])->name('features');
 Route::get('/pricing', [WebsiteController::class, 'pricing'])->name('pricing');
 
