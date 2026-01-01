@@ -16,14 +16,30 @@ export const useCartStore = defineStore('cart', () => {
   });
 
   const addItem = (product) => {
-    const existingItem = items.value.find(item => item.id === product.id);
-    
+    // Generate a unique signature for the customizations
+    const customizationKey = JSON.stringify(product.customizations || {});
+
+    // Calculate the effective unit price (Base + Addons)
+    // If totalPrice is provided, derive unit price from it. Fallback to base price.
+    const effectiveUnitPrice = product.totalPrice
+      ? (product.totalPrice / (product.quantity || 1))
+      : product.price;
+
+    // Find if this exact item configuration exists
+    const existingItem = items.value.find(item =>
+      item.id === product.id &&
+      JSON.stringify(item.customizations || {}) === customizationKey
+    );
+
     if (existingItem) {
       existingItem.quantity += product.quantity || 1;
     } else {
       items.value.push({
         ...product,
-        quantity: product.quantity || 1
+        quantity: product.quantity || 1,
+        price: effectiveUnitPrice,     // Update price to include addons
+        basePrice: product.price,      // Keep original base price for reference
+        customizationKey: customizationKey // Store key for easier debugging/comparisons
       });
     }
   };

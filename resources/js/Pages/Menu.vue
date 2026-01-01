@@ -129,13 +129,8 @@
         </section>
 
         <!-- Customization Modal -->
-        <ItemCustomizationModal 
-            :is-open="isModalOpen" 
-            :item="selectedItem" 
-            :addon-groups="selectedItemAddonGroups"
-            @close="closeCustomizationModal"
-            @add-to-cart="handleAddToCart" 
-        />
+        <ItemCustomizationModal :is-open="isModalOpen" :item="selectedItem" :addon-groups="selectedItemAddonGroups"
+            @close="closeCustomizationModal" @add-to-cart="handleAddToCart" />
     </MainLayout>
 </template>
 
@@ -160,15 +155,9 @@ const isModalOpen = ref(false);
 const selectedItem = ref(null);
 
 // Get addon groups for selected item
+// Get addon groups for selected item
 const selectedItemAddonGroups = computed(() => {
-    if (!selectedItem.value || !props.addonGroups) return [];
-    
-    // Filter addon groups based on item's addon_group_id or category
-    // You can customize this logic based on your needs
-    return props.addonGroups.filter(group => {
-        // Example: Filter by description matching category
-        return group.api_id === selectedItem.value.api_group_id;
-    });
+    return selectedItem.value?.addon_groups || [];
 });
 
 /** -------------------------
@@ -272,35 +261,19 @@ onUnmounted(() => {
 /** Modal & cart */
 const openCustomizationModal = (item) => {
     selectedItem.value = item;
-    // --- INPUT CHECK: START ---
-console.log('1. Item object received:', item);
-console.log('2. Item api_group_id:', item.api_group_id);
-console.log('3. Addon Groups Prop:', props.addonGroups);
-console.log('4. Is Addon Groups an array?', Array.isArray(props.addonGroups));
-// --- INPUT CHECK: END ---
-    
-    // Get addon groups for this item using api_group_id
-    const itemAddonGroups = props.addonGroups?.filter(group => {
-        // 👇 ADD THESE console.log STATEMENTS
-    console.log('--- Debugging Addon Group Filter ---');
-    console.log('item.api_group_id:', item.api_group_id);
-    console.log('group.id:', group.api_id);
-    console.log('Comparison Result (item.api_group_id && group.id):', item.api_group_id && group.api_id);
-    console.log('Equality Check Result (group.id === item.api_group_id):', group.api_id === item.api_group_id);
-    console.log('Final Filter Condition:', item.api_group_id && group.id === item.api_group_id);
-    // 👆 END OF console.log STATEMENTS
-        return item.api_group_id && group.api_id === item.api_group_id;
-    }) || [];
-    
+
+    // Use the addon_groups already attached to the item from the backend
+    const itemAddonGroups = item.addon_groups || [];
+
     // Check if item has multiple ingredients (more than 1)
-    const hasIngredients = item.ingredients && 
-                          Array.isArray(item.ingredients) && 
-                          item.ingredients.length > 1;
-    
+    const hasIngredients = item.ingredients &&
+        Array.isArray(item.ingredients) &&
+        item.ingredients.length > 1;
+
     // Check if item needs customization
-    // Show modal if: has addon groups OR has multiple ingredients
-    const needsCustomization = itemAddonGroups.length > 0 || hasIngredients;
-    
+    // Show modal if: has addon groups OR has multiple ingredients OR is a DEAL
+    const needsCustomization = item.type === 'deal' || itemAddonGroups.length > 0 || hasIngredients;
+
     if (needsCustomization) {
         // Show customization modal
         isModalOpen.value = true;
