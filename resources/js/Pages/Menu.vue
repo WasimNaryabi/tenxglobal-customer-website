@@ -55,7 +55,7 @@
                         <p class="text-gray-300">
                             Found <span class="text-orange-500 font-bold">{{ getTotalFilteredItems() }}</span> items
                             <span v-if="searchQuery"> matching "<span class="text-white font-semibold">{{ searchQuery
-                            }}</span>"</span>
+                                    }}</span>"</span>
                         </p>
                     </div>
                 </div>

@@ -23,8 +23,13 @@
             </h2>
             <p v-if="isDeal" class="text-xs text-orange-400 font-medium">
               Step {{ dealStep + 1 }}/{{ dealTotalSteps }}: {{ activeItem.name }}
+              <span class="text-gray-500 mx-1">|</span>
+              <span class="text-gray-300">{{ subStep === 0 ? 'Variants' : 'Add-ons' }}</span>
             </p>
-            <span v-else-if="selectedVariant" class="text-gray-400 text-sm">({{ selectedVariant.name }})</span>
+            <p v-else-if="!isSummaryView" class="text-xs text-orange-400 font-medium">
+              Step {{ subStep + 1 }}/{{ hasAddonGroups ? 2 : 1 }}: {{ subStep === 0 ? 'Variants' : 'Add-ons' }}
+            </p>
+            <span v-else class="text-xs text-gray-400">Review Order</span>
           </div>
 
           <button @click="closeModal"
@@ -40,135 +45,142 @@
 
           <!-- STEP 1: Ingredients & Base Info (For Active Item) -->
           <div v-if="currentView === 'customize'">
-            <p v-if="activeItem.description" class="text-gray-400 text-sm mb-6">{{ activeItem.description }}</p>
 
-            <!-- Variant Selector -->
-            <div v-if="activeItem.variants && activeItem.variants.length > 0" class="mb-6">
-              <h3 class="text-lg font-bold text-white mb-3">Select Variant</h3>
-              <div class="flex flex-wrap gap-2">
-                <button v-for="variant in activeItem.variants" :key="variant.id" @click="selectedVariant = variant"
-                  class="px-4 py-2 rounded-lg border text-sm font-medium transition flex items-center gap-2" :class="selectedVariant?.id === variant.id
-                    ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-900/20'
-                    : 'bg-gray-900 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-white'">
-                  <span>{{ variant.name }}</span>
-                  <!-- Only show price if it adds cost in a deal, or full price if regular item -->
-                  <span class="opacity-80 text-xs text-orange-200">
-                    {{ formatPrice(variant.price) }}
-                  </span>
-                </button>
-              </div>
-            </div>
+            <!-- SUB-STEP 1: Variants & Ingredients -->
+            <div v-show="subStep === 0">
+              <p v-if="activeItem.description" class="text-gray-400 text-sm mb-6">{{ activeItem.description }}</p>
 
-            <!-- Ingredients (if available) -->
-            <div v-if="hasIngredients" class="space-y-3 mb-6">
-              <div class="mb-4">
-                <h3 class="text-lg font-bold text-white">Customize Ingredients</h3>
-                <p class="text-sm text-gray-500">Select ingredients to remove</p>
-              </div>
-
-              <div class="space-y-2">
-                <label v-for="ingredient in currentIngredients" :key="ingredient.id || ingredient.name"
-                  class="flex items-center justify-between p-3 bg-gray-900 border border-gray-800 rounded-lg cursor-pointer hover:border-gray-700 transition"
-                  :class="{ 'border-red-900 bg-red-900/10': removedIngredients.includes(ingredient.name) }">
-                  <div class="flex items-center gap-3">
-                    <input type="checkbox" :value="ingredient.name" v-model="removedIngredients"
-                      class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-red-500 focus:ring-red-500 focus:ring-offset-gray-900">
-                    <span class="text-gray-200"
-                      :class="{ 'text-red-400 line-through': removedIngredients.includes(ingredient.name) }">
-                      {{ ingredient.name }}
+              <!-- Variant Selector -->
+              <div v-if="activeItem.variants && activeItem.variants.length > 0" class="mb-6">
+                <h3 class="text-lg font-bold text-white mb-3">Select Variant</h3>
+                <div class="flex flex-wrap gap-2">
+                  <button v-for="variant in activeItem.variants" :key="variant.id" @click="selectedVariant = variant"
+                    class="px-4 py-2 rounded-lg border text-sm font-medium transition flex items-center gap-2" :class="selectedVariant?.id === variant.id
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-900/20'
+                      : 'bg-gray-900 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-white'">
+                    <span>{{ variant.name }}</span>
+                    <!-- Only show price if it adds cost in a deal, or full price if regular item -->
+                    <span class="opacity-80 text-xs text-orange-200">
+                      {{ formatPrice(variant.price) }}
                     </span>
-                  </div>
-                </label>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ingredients (if available) -->
+              <div v-if="hasIngredients" class="space-y-3 mb-6">
+                <div class="mb-4">
+                  <h3 class="text-lg font-bold text-white">Customize Ingredients</h3>
+                  <p class="text-sm text-gray-500">Select ingredients to remove</p>
+                </div>
+
+                <div class="space-y-2">
+                  <label v-for="ingredient in currentIngredients" :key="ingredient.id || ingredient.name"
+                    class="flex items-center justify-between p-3 bg-gray-900 border border-gray-800 rounded-lg cursor-pointer hover:border-gray-700 transition"
+                    :class="{ 'border-red-900 bg-red-900/10': removedIngredients.includes(ingredient.name) }">
+                    <div class="flex items-center gap-3">
+                      <input type="checkbox" :value="ingredient.name" v-model="removedIngredients"
+                        class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-red-500 focus:ring-red-500 focus:ring-offset-gray-900">
+                      <span class="text-gray-200"
+                        :class="{ 'text-red-400 line-through': removedIngredients.includes(ingredient.name) }">
+                        {{ ingredient.name }}
+                      </span>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
 
-            <!-- Addons Accordion -->
-            <div v-if="hasAddonGroups">
-              <div class="mb-4">
-                <h3 class="text-lg font-bold text-white">Choose Add-ons</h3>
-                <p class="text-sm text-gray-500">Customize your {{ activeItem.name }}</p>
-              </div>
+            <!-- SUB-STEP 2: Addons -->
+            <div v-show="subStep === 1">
+              <!-- Addons Accordion -->
+              <div v-if="hasAddonGroups">
+                <div class="mb-4">
+                  <h3 class="text-lg font-bold text-white">Choose Add-ons</h3>
+                  <p class="text-sm text-gray-500">Customize your {{ activeItem.name }}</p>
+                </div>
 
-              <div class="space-y-4">
-                <div v-for="group in currentAddonGroups" :key="group.id"
-                  class="border border-gray-800 rounded-xl overflow-hidden bg-gray-900/50">
-                  <!-- Accordion Header -->
-                  <button @click="toggleGroup(group.id)"
-                    class="w-full flex items-center justify-between p-4 bg-gray-900 hover:bg-gray-800 transition text-left">
-                    <div>
-                      <div class="flex items-center gap-2">
-                        <h4 class="font-bold text-white">{{ group.name }}</h4>
-                      </div>
-                      <p class="text-xs text-gray-400 mt-1">
-                        <span v-if="group.min_select > 0">Min: {{ group.min_select }}</span>
-                        <span v-if="group.max_select > 1" class="ml-2">Max: {{ group.max_select }}</span>
-                        <span v-if="group.max_select === 1" class="ml-2">Select 1</span>
-                      </p>
-                    </div>
-                    <svg class="w-5 h-5 text-gray-400 transform transition-transform duration-300"
-                      :class="{ 'rotate-180': expandedGroups.includes(group.id) }" fill="none" stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  <!-- Accordion Body -->
-                  <div v-show="expandedGroups.includes(group.id)" class="p-3 border-t border-gray-800 bg-black/30">
-                    <p v-if="group.description" class="text-xs text-gray-500 mb-3 italic">{{ group.description }}</p>
-
-                    <div class="space-y-2">
-                      <div v-for="addon in group.addons" :key="addon.id"
-                        class="flex items-center justify-between p-3 rounded-lg border border-gray-800/50 bg-gray-900/50 hover:bg-gray-800 transition"
-                        :class="{ 'border-orange-500/30 bg-orange-500/5': getAddonQuantity(group.id, addon.id) > 0 }">
-                        <!-- Addon Info -->
-                        <div class="flex-1">
-                          <p class="text-sm font-medium text-gray-200">{{ addon.name }}</p>
-                          <p class="text-xs text-orange-400 font-semibold mt-0.5">
-                            {{ parseFloat(addon.price) > 0 ? '+£' + parseFloat(addon.price).toFixed(2) : 'Free' }}
-                          </p>
+                <div class="space-y-4">
+                  <div v-for="group in currentAddonGroups" :key="group.id"
+                    class="border border-gray-800 rounded-xl overflow-hidden bg-gray-900/50">
+                    <!-- Accordion Header -->
+                    <button @click="toggleGroup(group.id)"
+                      class="w-full flex items-center justify-between p-4 bg-gray-900 hover:bg-gray-800 transition text-left">
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <h4 class="font-bold text-white">{{ group.name }}</h4>
                         </div>
+                        <p class="text-xs text-gray-400 mt-1">
+                          <span v-if="group.max_select > 1">Max: {{ group.max_select }}</span>
+                          <span v-if="group.max_select === 1">Select 1</span>
+                          <!-- <span class="text-xs text-green-400 ml-2">(Optional)</span> -->
+                        </p>
+                      </div>
+                      <svg class="w-5 h-5 text-gray-400 transform transition-transform duration-300"
+                        :class="{ 'rotate-180': expandedGroups.includes(group.id) }" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
 
-                        <!-- Quantity Controls -->
-                        <div class="flex items-center bg-black rounded-lg border border-gray-700 p-0.5">
-                          <button @click.stop="updateAddonQuantity(group, addon, -1)"
-                            class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition"
-                            :disabled="getAddonQuantity(group.id, addon.id) === 0"
-                            :class="{ 'opacity-30 cursor-not-allowed': getAddonQuantity(group.id, addon.id) === 0 }">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                            </svg>
-                          </button>
+                    <!-- Accordion Body -->
+                    <div v-show="expandedGroups.includes(group.id)" class="p-3 border-t border-gray-800 bg-black/30">
+                      <p v-if="group.description" class="text-xs text-gray-500 mb-3 italic">{{ group.description }}</p>
 
-                          <span class="w-6 text-center text-sm font-bold text-white">
-                            {{ getAddonQuantity(group.id, addon.id) }}
-                          </span>
+                      <div class="space-y-2">
+                        <div v-for="addon in group.addons" :key="addon.id"
+                          class="flex items-center justify-between p-3 rounded-lg border border-gray-800/50 bg-gray-900/50 hover:bg-gray-800 transition"
+                          :class="{ 'border-orange-500/30 bg-orange-500/5': getAddonQuantity(group.id, addon.id) > 0 }">
+                          <!-- Addon Info -->
+                          <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-200">{{ addon.name }}</p>
+                            <p class="text-xs text-orange-400 font-semibold mt-0.5">
+                              {{ parseFloat(addon.price) > 0 ? '+£' + parseFloat(addon.price).toFixed(2) : 'Free' }}
+                            </p>
+                          </div>
 
-                          <button @click.stop="updateAddonQuantity(group, addon, 1)"
-                            class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition"
-                            :disabled="!canIncreaseAddon(group)"
-                            :class="{ 'opacity-30 cursor-not-allowed': !canIncreaseAddon(group) }">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v16m8-8H4" />
-                            </svg>
-                          </button>
+                          <!-- Quantity Controls -->
+                          <div class="flex items-center bg-black rounded-lg border border-gray-700 p-0.5">
+                            <button @click.stop="updateAddonQuantity(group, addon, -1)"
+                              class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition"
+                              :disabled="getAddonQuantity(group.id, addon.id) === 0"
+                              :class="{ 'opacity-30 cursor-not-allowed': getAddonQuantity(group.id, addon.id) === 0 }">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                              </svg>
+                            </button>
+
+                            <span class="w-6 text-center text-sm font-bold text-white">
+                              {{ getAddonQuantity(group.id, addon.id) }}
+                            </span>
+
+                            <button @click.stop="updateAddonQuantity(group, addon, 1)"
+                              class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition"
+                              :disabled="!canIncreaseAddon(group)"
+                              :class="{ 'opacity-30 cursor-not-allowed': !canIncreaseAddon(group) }">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <!-- Validation Msg for Group -->
-                    <!-- Only show if NOT a deal, or if the user specifically wants to see requirements? -->
-                    <!-- User asked to make addons optional for deals. So validation text is confusing here for deals. -->
-                    <div class="mt-2 text-right" v-if="!isDeal">
-                      <span v-if="!isGroupSatisfied(group)" class="text-xs text-orange-400">
-                        Select {{ Math.max(0, group.min_select - getGroupTotalSelected(group.id)) }} more
-                      </span>
-                      <span v-else class="text-xs text-green-500 flex items-center justify-end gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Satisfied
-                      </span>
+                      <!-- Validation Msg for Group -->
+                      <!-- Only show if NOT a deal, or if the user specifically wants to see requirements? -->
+                      <!-- User asked to make addons optional for deals. So validation text is confusing here for deals. -->
+                      <div class="mt-2 text-right" v-if="!isDeal">
+                        <span v-if="!isGroupSatisfied(group)" class="text-xs text-orange-400">
+                          Select {{ Math.max(0, group.min_select - getGroupTotalSelected(group.id)) }} more
+                        </span>
+                        <span v-else class="text-xs text-green-500 flex items-center justify-end gap-1">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Satisfied
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -325,6 +337,7 @@ const validationError = ref('');
 
 // Deal State
 const dealStep = ref(0); // Index of the item being customized in the deal
+const subStep = ref(0); // 0: Variants/Ingredients, 1: Addons
 const dealState = ref([]); // Array of objects: { selectedVariant, removedIngredients, selectedAddons } for each item
 
 // Regular Item State (used if !isDeal)
@@ -407,6 +420,7 @@ const basePrice = computed(() => parseFloat(props.item?.price || 0));
 
 const canGoBack = computed(() => {
   if (isSummaryView.value) return true;
+  if (subStep.value > 0) return true;
   if (isDeal.value && dealStep.value > 0) return true;
   return false;
 });
@@ -414,6 +428,10 @@ const canGoBack = computed(() => {
 const showNextIcon = computed(() => !isSummaryView.value);
 const actionButtonText = computed(() => {
   if (isSummaryView.value) return 'Add to Basket';
+
+  // If there are addons and we are in step 0, Next
+  if (hasAddonGroups.value && subStep.value === 0) return 'Next';
+
   if (isDeal.value) {
     return dealStep.value < dealTotalSteps.value - 1 ? 'Next Item' : 'Finish Customization';
   }
@@ -426,6 +444,7 @@ const initializeState = () => {
   validationError.value = '';
   isSummaryView.value = false;
   dealStep.value = 0;
+  subStep.value = 0;
 
   if (isDeal.value) {
     dealState.value = props.item.items.map(i => ({
@@ -466,8 +485,21 @@ const goBack = () => {
     isSummaryView.value = false;
     return;
   }
+
+  if (subStep.value > 0) {
+    subStep.value--;
+    return;
+  }
+
   if (isDeal.value && dealStep.value > 0) {
     dealStep.value--;
+    // Set subStep to 1 if previous item had addons, else 0
+    // But for simplicity, let's just go to start of previous item? 
+    // User probably expects to go to addons of previous item if they clicked back from item 2 variant.
+    // We need to check if previous item has addons.
+    const prevItem = props.item.items[dealStep.value];
+    const prevHasAddons = (prevItem.addon_groups && prevItem.addon_groups.length > 0) || props.addonGroups.length > 0;
+    subStep.value = (prevHasAddons) ? 1 : 0;
   }
 };
 
@@ -486,20 +518,8 @@ const getVariantDelta = (variant) => {
 
 // --- VALIDATION & NAVIGATION ---
 const validateCurrentStep = () => {
-  // For Deals, addons are optional - skip validation
-  if (isDeal.value) return true;
-
-  // Check required addon groups
-  const groups = currentAddonGroups.value;
-  for (const group of groups) {
-    if (group.min_select > 0) {
-      const total = getGroupTotalSelected(group.id);
-      if (total < group.min_select) {
-        validationError.value = `You must select at least ${group.min_select} option(s) for ${group.name}`;
-        return false;
-      }
-    }
-  }
+  // User requested to make addons optional for Menus.
+  // We simply return true to bypass any mandatory selection validation.
   return true;
 };
 
@@ -513,9 +533,19 @@ const handleAction = () => {
 
   if (!validateCurrentStep()) return;
 
+  // If in Step 0 (Variants) and we have addons, go to Step 1
+  if (subStep.value === 0 && hasAddonGroups.value) {
+    subStep.value = 1;
+    expandFirstGroup();
+    return;
+  }
+
+  // Otherwise we are done with this item (either no addons, or we just finished Step 1)
   if (isDeal.value) {
     if (dealStep.value < dealTotalSteps.value - 1) {
       dealStep.value++;
+      subStep.value = 0; // Reset for next item
+      expandFirstGroup();
     } else {
       isSummaryView.value = true;
     }

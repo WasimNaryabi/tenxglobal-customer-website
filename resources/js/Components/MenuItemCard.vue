@@ -1,32 +1,28 @@
 <template>
-  <div 
-    class="bg-gray-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 group cursor-pointer border border-gray-800 hover:border-orange-500/50"
-  >
+  <div @click="$emit('open-customization', item)"
+    class="bg-gray-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 group cursor-pointer border border-gray-800 hover:border-orange-500/50">
     <!-- Image - Reduced height -->
     <div class="relative overflow-hidden h-36">
-      <img 
-        :src="item.image" 
-        :alt="item.name" 
-        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-      >
-      
+      <img :src="item.image" :alt="item.name"
+        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+
       <!-- Badges - Smaller -->
       <div class="absolute top-2 left-2 flex flex-col gap-1.5">
-        <span v-if="item.isNew" class="bg-green-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg">
+        <span v-if="item.isNew"
+          class="bg-green-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg">
           NEW
         </span>
-        <span v-if="item.discount" class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg">
+        <span v-if="item.discount"
+          class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg">
           {{ item.discount }}% OFF
         </span>
       </div>
 
       <!-- Quick Add Button - Smaller, Always visible on mobile -->
-      <button 
-        @click.stop="$emit('open-customization', item)"
-        class="absolute bottom-2 right-2 bg-orange-500 text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-all shadow-lg hover:scale-110"
-      >
+      <button @click.stop="$emit('open-customization', item)"
+        class="absolute bottom-2 right-2 bg-orange-500 text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-all shadow-lg hover:scale-110">
         <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
       </button>
     </div>
@@ -58,11 +54,9 @@
             £{{ item.price.toFixed(2) }}
           </span>
         </div>
-        
-        <button 
-          @click.stop="$emit('open-customization', item)"
-          class="bg-orange-500 text-white px-4 py-2 rounded-full text-xs font-bold hover:bg-orange-600 transition-all hover:scale-105 shadow-lg"
-        >
+
+        <button @click.stop="$emit('open-customization', item)"
+          class="bg-orange-500 text-white px-4 py-2 rounded-full text-xs font-bold hover:bg-orange-600 transition-all hover:scale-105 shadow-lg">
           Add
         </button>
       </div>
