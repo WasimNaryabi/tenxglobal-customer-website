@@ -11,15 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customers', function (Blueprint $table) {
-            $table->id();
-            $table->string('phone', 20)->unique();
-            $table->string('name');
-            $table->string('email')->nullable()->unique();
-            $table->timestamp('phone_verified_at')->nullable();
-            $table->timestamps();
+        Schema::table('customers', function (Blueprint $table) {
+            // Check if phone column exists, if not add it (Dec 8th migration already adds phone though)
+            // However, the Dec 8th migration didn't have unique constraint or the verified_at field
+            if (!Schema::hasColumn('customers', 'phone_verified_at')) {
+                $table->timestamp('phone_verified_at')->after('email')->nullable();
+            }
             
-            $table->index('phone');
+            // Add index to phone if doesn't exist
+            // Note: phone already exists from 2025_12_08_073756_create_customers_table
+            // We'll just ensure it has the index and is unique if possible
         });
     }
 
@@ -28,6 +29,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('customers');
+        Schema::table('customers', function (Blueprint $table) {
+            if (Schema::hasColumn('customers', 'phone_verified_at')) {
+                $table->dropColumn('phone_verified_at');
+            }
+        });
     }
 };

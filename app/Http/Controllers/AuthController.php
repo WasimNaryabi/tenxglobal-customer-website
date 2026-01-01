@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
+use App\Models\Customer;
 use Inertia\Inertia;
 
 class AuthController extends Controller
@@ -69,19 +69,19 @@ class AuthController extends Controller
         // Clear OTP from cache
         Cache::forget("otp_{$phone}");
         
-        // Find or create user
-        $user = User::where('phone', $phone)->first();
+        // Find or create customer
+        $customer = Customer::where('phone', $phone)->first();
         
-        if (!$user) {
-            // New user - needs profile completion
+        if (!$customer) {
+            // New customer - needs profile completion
             session(['pending_phone' => $phone]);
             return Inertia::render('Auth/Login', [
                 'needsProfile' => true,
             ]);
         }
         
-        // Login existing user
-        Auth::login($user);
+        // Login existing customer
+        Auth::guard('customer')->login($customer);
         
         return redirect()->intended('/');
     }
@@ -94,7 +94,7 @@ class AuthController extends Controller
         $request->validate([
             'phone' => ['required', 'regex:/^\+44[0-9]{10}$/'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:users'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:customers'],
         ]);
 
         $phone = $request->phone;
@@ -104,19 +104,20 @@ class AuthController extends Controller
             return back()->withErrors(['phone' => 'Invalid session']);
         }
         
-        // Create new user
-        $user = User::create([
+        // Create new customer
+        $customer = Customer::create([
             'phone' => $phone,
             'name' => $request->name,
             'email' => $request->email,
             'phone_verified_at' => now(),
+            'status' => 'lead', // Default status for new signs ups
         ]);
         
         // Clear pending session
         session()->forget('pending_phone');
         
-        // Login user
-        Auth::login($user);
+        // Login customer
+        Auth::guard('customer')->login($customer);
         
         return redirect()->intended('/');
     }
@@ -126,7 +127,7 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        Auth::logout();
+        Auth::guard('customer')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         
