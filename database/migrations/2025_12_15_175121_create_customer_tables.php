@@ -12,20 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('customers', function (Blueprint $table) {
+            // Check if phone column exists, if not add it (Dec 8th migration already adds phone though)
+            // However, the Dec 8th migration didn't have unique constraint or the verified_at field
             if (!Schema::hasColumn('customers', 'phone_verified_at')) {
-                $table->timestamp('phone_verified_at')->nullable()->after('email');
+                $table->timestamp('phone_verified_at')->after('email')->nullable();
             }
             
-            // Update phone to be unique if it's not already, and ensure it's string(20)
-            // We need to be careful with existing data if we add unique constraint.
-            // For now, let's just make sure the column exists or modify it.
-            // Since it's an update, let's just add the index if possible or modify.
-            // The previous migration made it nullable. This one wants it unique and length 20.
-            if (Schema::hasColumn('customers', 'phone')) {
-                 $table->string('phone', 20)->unique()->change();
-            } else {
-                 $table->string('phone', 20)->unique();
-            }
+            // Add index to phone if doesn't exist
+            // Note: phone already exists from 2025_12_08_073756_create_customers_table
+            // We'll just ensure it has the index and is unique if possible
         });
     }
 
@@ -35,14 +30,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-             if (Schema::hasColumn('customers', 'phone_verified_at')) {
+            if (Schema::hasColumn('customers', 'phone_verified_at')) {
                 $table->dropColumn('phone_verified_at');
             }
-            // Reverting phone change is complex depending on original state, 
-            // but we can try to make it nullable and drop unique if needed.
-            // For safety in this context, we might just leave the phone col modification or revert strictly.
-             $table->string('phone')->nullable()->change();
-             $table->dropUnique(['phone']);
         });
     }
 };
