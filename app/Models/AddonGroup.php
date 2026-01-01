@@ -13,16 +13,16 @@ class AddonGroup extends Model
         'api_id',
         'name',
         'description',
-        'min_selections',
-        'max_selections',
+        'min_select',
+        'max_select',
         'status',
         'sort_order',
     ];
 
     protected $casts = [
         'api_id' => 'integer',
-        'min_selections' => 'integer',
-        'max_selections' => 'integer',
+        'min_select' => 'integer',
+        'max_select' => 'integer',
         'sort_order' => 'integer',
     ];
 

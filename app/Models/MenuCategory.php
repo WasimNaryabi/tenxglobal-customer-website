@@ -36,6 +36,14 @@ class MenuCategory extends Model
     }
 
     /**
+     * Get the deals for this category
+     */
+    public function deals(): HasMany
+    {
+        return $this->hasMany(Deal::class, 'category_id');
+    }
+
+    /**
      * Scope to get only active categories
      */
     public function scopeActive($query)

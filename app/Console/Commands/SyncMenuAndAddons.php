@@ -75,6 +75,9 @@ class SyncMenuAndAddons extends Command
             if (isset($result['addons_synced'])) {
                 $tableData[] = ['Addons', $result['addons_synced']];
             }
+            if (isset($result['deals_synced'])) {
+                $tableData[] = ['Deals', $result['deals_synced']];
+            }
             if (isset($result['duration'])) {
                 $tableData[] = ['Duration', $result['duration'] . 's'];
             }
@@ -123,6 +126,7 @@ class SyncMenuAndAddons extends Command
                 ['Addons', 'Addon Groups', $stats['addons']['groups']],
                 ['Addons', 'Total Addons', $stats['addons']['addons']],
                 ['Addons', 'Active Groups', $stats['addons']['active_groups']],
+                ['Deals', 'Total Deals', $stats['deals']['total'] ?? 0],
             ]
         );
 

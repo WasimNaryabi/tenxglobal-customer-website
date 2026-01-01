@@ -6,6 +6,7 @@ use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\AddonGroup;
 use App\Models\Addon;
+use App\Models\Deal;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,10 +14,10 @@ use Illuminate\Support\Str;
 
 class MenuSyncService
 {
-    private $apiBaseUrl = 'https://smashngrubpos.10xglobal.co.uk/api/menu';
+    private $apiBaseUrl = 'https://smashngrub.10xglobal.co.uk/api/menu';
     
     /**
-     * Sync all data (menu + addons)
+     * Sync all data (menu + addons + deals)
      */
     public function syncAll(): array
     {
@@ -25,6 +26,7 @@ class MenuSyncService
         $categoriesSynced = 0;
         $addonGroupsSynced = 0;
         $addonsSynced = 0;
+        $dealsSynced = 0;
         $errors = [];
         
         DB::beginTransaction();
@@ -51,11 +53,18 @@ class MenuSyncService
             if (!empty($addonsResult['errors'])) {
                 $errors = array_merge($errors, $addonsResult['errors']);
             }
+
+            // Sync deals
+            $dealsResult = $this->syncDeals();
+            $dealsSynced = $dealsResult['count'];
+            if (!empty($dealsResult['errors'])) {
+                $errors = array_merge($errors, $dealsResult['errors']);
+            }
             
             DB::commit();
             
             // Log the sync
-            $this->logSync('success', $itemsSynced, $categoriesSynced, $addonGroupsSynced, $addonsSynced, 'Complete sync successful', $errors);
+            $this->logSync('success', $itemsSynced, $categoriesSynced, $addonGroupsSynced, $addonsSynced, 'Complete sync successful. Deals: ' . $dealsSynced, $errors);
             
             return [
                 'success' => true,
@@ -63,6 +72,7 @@ class MenuSyncService
                 'categories_synced' => $categoriesSynced,
                 'addon_groups_synced' => $addonGroupsSynced,
                 'addons_synced' => $addonsSynced,
+                'deals_synced' => $dealsSynced,
                 'duration' => now()->diffInSeconds($startTime),
                 'errors' => $errors,
             ];
@@ -82,6 +92,85 @@ class MenuSyncService
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Sync deals from API
+     */
+    public function syncDeals(): array
+    {
+        $errors = [];
+        $count = 0;
+        $page = 1;
+        $hasMorePages = true;
+
+        try {
+            while ($hasMorePages) {
+                // Assuming endpoint is /deals/list based on conventions
+                $response = Http::timeout(60)
+                    ->retry(2, 100)
+                    ->acceptJson()
+                    ->get($this->apiBaseUrl . '/deals/list', ['page' => $page]);
+
+                if (!$response->successful()) {
+                    throw new \Exception('Deals API returned status: ' . $response->status());
+                }
+
+                $data = $response->json();
+                $deals = $data['data'] ?? [];
+                $pagination = $data['pagination'] ?? null;
+
+                foreach ($deals as $dealData) {
+                    try {
+                        $deal = Deal::updateOrCreate(
+                            ['api_id' => $dealData['id']],
+                            [
+                                'name' => $dealData['name'],
+                                'description' => $dealData['description'] ?? null,
+                                'price' => $dealData['price'] ?? 0,
+                                'status' => ($dealData['status'] ?? 1) == 1,
+                                'is_taxable' => ($dealData['is_taxable'] ?? 0) == 1,
+                                'label_color' => $dealData['label_color'] ?? null,
+                                'category_id' => isset($dealData['category_id']) 
+                                    ? MenuCategory::where('api_id', $dealData['category_id'])->value('id') 
+                                    : null, 
+                                'image' => $dealData['image_url'] ?? $dealData['image'] ?? null,
+                            ]
+                        );
+
+                        // Sync Addons Pivot
+                        if (isset($dealData['addon_groups']) && is_array($dealData['addon_groups'])) {
+                            // Extract API IDs from the nested objects
+                            $apiGroupIds = array_map(function($g) { return $g['id']; }, $dealData['addon_groups']);
+                            $localGroupIds = AddonGroup::whereIn('api_id', $apiGroupIds)->pluck('id')->toArray();
+                            $deal->addons()->sync($localGroupIds);
+                        }
+
+                        // Sync Menu Items Pivot
+                        $itemsKey = isset($dealData['menu_items']) ? 'menu_items' : 'items';
+                        if (isset($dealData[$itemsKey]) && is_array($dealData[$itemsKey])) {
+                            $apiItemIds = array_map(function($i) { return $i['id']; }, $dealData[$itemsKey]);
+                            $localItemIds = MenuItem::whereIn('api_id', $apiItemIds)->pluck('id')->toArray();
+                            $deal->items()->sync($localItemIds);
+                        }
+
+                        $count++;
+                    } catch (\Exception $e) {
+                        $errors[] = "Failed to sync deal {$dealData['name']}: " . $e->getMessage();
+                    }
+                }
+
+                if ($pagination && $page < $pagination['last_page']) {
+                    $page++;
+                } else {
+                    $hasMorePages = false;
+                }
+            }
+        } catch (\Exception $e) {
+            $errors[] = "Failed to fetch deals: " . $e->getMessage();
+        }
+
+        return ['count' => $count, 'errors' => $errors];
     }
     
     /**
@@ -298,76 +387,84 @@ class MenuSyncService
         $errors = [];
         $groupsCount = 0;
         $addonsCount = 0;
+        $processedGroups = [];
+        $page = 1;
+        $hasMorePages = true;
         
         try {
-            $response = Http::timeout(60)
-                ->retry(2, 100)
-                ->acceptJson()
-                ->get($this->apiBaseUrl . '/addons/all');
-            
-            if (!$response->successful()) {
-                throw new \Exception('Addons API returned status: ' . $response->status());
-            }
-            
-            $data = $response->json();
-            
-            if (!isset($data['success']) || !$data['success']) {
-                throw new \Exception('Addons API returned unsuccessful response');
-            }
-            
-            $addonGroups = $data['data'] ?? [];
-            
-            if (empty($addonGroups)) {
-                return [
-                    'groups_count' => 0,
-                    'addons_count' => 0,
-                    'errors' => ['No addon groups found in API response'],
-                ];
-            }
-            
-            foreach ($addonGroups as $groupData) {
-                try {
-                    // Create or update addon group
-                    $group = AddonGroup::updateOrCreate(
-                        ['api_id' => $groupData['id']],
-                        [
-                            'name' => $groupData['name'],
-                            'description' => $groupData['description'] ?? null,
-                            'min_selections' => $groupData['min_select'] ?? 0,
-                            'max_selections' => $groupData['max_select'] ?? 1,
-                            'status' => $groupData['status'] ?? 'active',
-                            'sort_order' => 0,
-                        ]
-                    );
-                    
-                    $groupsCount++;
-                    
-                    // Sync addons for this group
-                    if (isset($groupData['addons']) && is_array($groupData['addons'])) {
-                        foreach ($groupData['addons'] as $addonData) {
-                            try {
-                                Addon::updateOrCreate(
-                                    ['api_id' => $addonData['id']],
-                                    [
-                                        'addon_group_id' => $group->id,
-                                        'api_group_id' => $addonData['addon_group_id'],
-                                        'name' => $addonData['name'],
-                                        'description' => $addonData['description'] ?? null,
-                                        'price' => $addonData['price'] ?? 0,
-                                        'status' => $addonData['status'] ?? 'active',
-                                        'sort_order' => $addonData['sort_order'] ?? 0,
-                                    ]
-                                );
-                                
-                                $addonsCount++;
-                            } catch (\Exception $e) {
-                                $errors[] = "Failed to sync addon {$addonData['name']}: " . $e->getMessage();
+            while ($hasMorePages) {
+                $response = Http::timeout(60)
+                    ->retry(2, 100)
+                    ->acceptJson()
+                    ->get($this->apiBaseUrl . '/addons/all', ['page' => $page]);
+                
+                if (!$response->successful()) {
+                    throw new \Exception('Addons API returned status: ' . $response->status());
+                }
+                
+                $data = $response->json();
+                $addons = $data['data'] ?? [];
+                $pagination = $data['pagination'] ?? null;
+                
+                if (empty($addons) && $page === 1) {
+                    return [
+                        'groups_count' => 0,
+                        'addons_count' => 0,
+                        'errors' => ['No addons found in API response'],
+                    ];
+                }
+                
+                foreach ($addons as $addonData) {
+                    try {
+                        // 1. Sync Group if present
+                        $groupData = $addonData['addon_group'] ?? null;
+                        $groupId = null;
+
+                        if ($groupData) {
+                            $group = AddonGroup::updateOrCreate(
+                                ['api_id' => $groupData['id']],
+                                [
+                                    'name' => $groupData['name'],
+                                    'description' => $groupData['description'] ?? null,
+                                    'min_select' => $groupData['min_select'] ?? 0,
+                                    'max_select' => $groupData['max_select'] ?? 1,
+                                    'status' => $groupData['status'] ?? 'active',
+                                    'sort_order' => 0,
+                                ]
+                            );
+                            $groupId = $group->id;
+                            
+                            // Count unique groups synced in this run
+                            if (!in_array($group->id, $processedGroups)) {
+                                $groupsCount++;
+                                $processedGroups[] = $group->id;
                             }
                         }
+
+                        // 2. Sync Addon
+                        if ($groupId) {
+                             Addon::updateOrCreate(
+                                ['api_id' => $addonData['id']],
+                                [
+                                    'addon_group_id' => $groupId,
+                                    'name' => $addonData['name'],
+                                    'description' => $addonData['description'] ?? null,
+                                    'price' => $addonData['price'] ?? 0,
+                                    'status' => $addonData['status'] ?? 'active',
+                                    'sort_order' => $addonData['sort_order'] ?? 0,
+                                ]
+                            );
+                            $addonsCount++;
+                        }
+                    } catch (\Exception $e) {
+                         $errors[] = "Failed to sync addon {$addonData['name']}: " . $e->getMessage();
                     }
-                    
-                } catch (\Exception $e) {
-                    $errors[] = "Failed to sync addon group {$groupData['name']}: " . $e->getMessage();
+                }
+
+                if ($pagination && $page < $pagination['last_page']) {
+                    $page++;
+                } else {
+                    $hasMorePages = false;
                 }
             }
             
@@ -449,7 +546,7 @@ class MenuSyncService
         }, $item['ingredients'] ?? []);
         
         // Create or update menu item
-        MenuItem::updateOrCreate(
+        $menuItem = MenuItem::updateOrCreate(
             ['api_id' => $item['id']],
             [
                 'name' => $item['name'],
@@ -477,6 +574,13 @@ class MenuSyncService
                 'active' => true,
             ]
         );
+
+        // Sync Addon Groups Pivot
+        if (isset($item['addon_group_ids']) && is_array($item['addon_group_ids'])) {
+            $apiGroupIds = $item['addon_group_ids'];
+            $localGroupIds = AddonGroup::whereIn('api_id', $apiGroupIds)->pluck('id')->toArray();
+            $menuItem->addonGroups()->sync($localGroupIds);
+        }
     }
     
     /**
@@ -546,6 +650,9 @@ class MenuSyncService
                 'groups' => AddonGroup::count(),
                 'addons' => Addon::count(),
                 'active_groups' => AddonGroup::where('status', 'active')->count(),
+            ],
+            'deals' => [
+                'total' => Deal::count(),
             ],
             'last_sync' => $this->getLastSync(),
         ];

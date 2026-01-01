@@ -63,6 +63,16 @@ class MenuItem extends Model
     }
 
     /**
+     * Get addon groups for this item
+     */
+    public function addonGroups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(AddonGroup::class, 'menu_item_addon_group')
+                    ->withPivot('sort_order')
+                    ->orderBy('pivot_sort_order');
+    }
+
+    /**
      * Scope to get only active items
      */
     public function scopeActive($query)
