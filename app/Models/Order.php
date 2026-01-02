@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 class Order extends Model
 {
     protected $fillable = [
+        'pos_order_id',
         'user_id',
         'order_number',
         'type',
@@ -24,6 +25,7 @@ class Order extends Model
         'vat',
         'total',
         'special_instructions',
+        'stripe_payment_id',
     ];
 
     protected $casts = [

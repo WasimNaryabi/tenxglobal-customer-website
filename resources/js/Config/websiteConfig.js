@@ -6,7 +6,7 @@
  */
 
 export default {
-  
+
   // ═══════════════════════════════════════════════════════════
   // 🏢 BUSINESS INFORMATION
   // ═══════════════════════════════════════════════════════════
@@ -15,9 +15,9 @@ export default {
     tagline: 'Delicious Food Delivered Fast',
     logo: '🍔', // Emoji or image path
     logoImage: '/images/smash-n-Grub-logo.jpg', // '/images/logo.png' or null to use emoji
-    
+
     description: 'Delight your taste buds with our delicious food selections. Order now and experience the best flavors.',
-    
+
     established: '2014', // Year business started
     yearsInBusiness: '10+',
     totalCategories: '15+',
@@ -31,7 +31,7 @@ export default {
     phone: '+441163661935',
     email: 'info@smashngrub.com',
     address: '204 Melbourne Road, Leicester LE2 0DT',
-    
+
     // Social Media
     social: {
       facebook: 'https://facebook.com/yourpage',
@@ -39,7 +39,7 @@ export default {
       twitter: 'https://twitter.com/yourpage',
       youtube: null, // null to hide
     },
-    
+
     // Business Hours
     hours: {
       weekdays: '4:00 PM - 11:00 PM',
@@ -57,35 +57,35 @@ export default {
       primary: '#ee6626',
       primaryHover: '#c36c45',
       primaryLight: '#fee2e2',
-      
-     // Secondary Color (Teal/Dark for sections)
+
+      // Secondary Color (Teal/Dark for sections)
       secondary: '#0a4a5c',      // Dark teal
       secondaryHover: '#1e6b7d', // Lighter teal
-      
+
       // Accent Colors
       accent: '#22c55e',         // Green for badges/success
       warning: '#fbbf24',        // Yellow/Gold for prices/highlights
-      
+
       // Dark Mode Colors
       dark: '#111827',           // Almost black (gray-900)
       darkCard: '#1f2937',       // Dark gray for cards (gray-800)
       darkBorder: '#374151',     // Border color (gray-700)
-      
+
       // Neutral Colors
       light: '#f9fafb',          // Light gray
       white: '#ffffff',          // Pure white
-      
+
       // Text Colors (for reference)
       textPrimary: '#ffffff',    // White text
       textSecondary: '#d1d5db',  // Light gray text
-      textMuted: '#9ca3af',  
-      
+      textMuted: '#9ca3af',
+
       // Neutral Colors
       dark: '#000000',
       light: '#000000',
       white: '#000000',
     },
-    
+
     // Fonts
     fonts: {
       primary: 'Poppins, sans-serif',
@@ -100,19 +100,19 @@ export default {
     title: 'Taste Made Easy',
     subtitle: 'Order Online Today',
     description: 'Good food and a good time with your family. We only serve food of the highest quality',
-    
+
     badge: 'Fast & Fresh',
-    
+
     // Hero Image
     image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=600&fit=crop',
-    
+
     // Search Form
     searchPlaceholder: {
       address: 'Enter your address',
       postalCode: 'Postal Code',
     },
     buttonText: 'Start Order',
-    
+
     // Background Gradient
     gradient: 'linear-gradient(135deg, #0a4a5c 0%, #1e6b7d 50%, #2d8ca3 100%)',
   },
@@ -125,37 +125,37 @@ export default {
       title: 'Popular Items',
       subtitle: 'Our most loved dishes',
     },
-    
+
     offers: {
       title: 'Special Offers',
       subtitle: "Don't miss out on our exclusive deals",
     },
-    
+
     newItems: {
       title: 'New Items',
       subtitle: 'Fresh additions to our menu',
     },
-    
+
     features: {
       title: 'Why Choose Us',
       subtitle: 'What makes us special',
     },
-    
+
     trendingMenu: {
       title: 'Trending Food Menu',
       subtitle: 'Most popular dishes this week',
     },
-    
+
     topTrending: {
       title: 'Top Trending',
       subtitle: 'Customer favorites',
     },
-    
+
     fastFood: {
       title: 'Popular Fast Food',
       subtitle: 'Quick bites, big flavors',
     },
-    
+
     about: {
       title: 'Good Food. Great Taste.',
       subtitle: 'Made By Us For You.',
@@ -200,13 +200,15 @@ export default {
     main: [
       { name: 'Home', href: '/', current: true },
       { name: 'Menu', href: '/menu', current: false },
+      { name: 'Track Order', href: '/track-order', current: false },
       { name: 'About Us', href: '/about', current: false },
       { name: 'Contact', href: '/contact', current: false },
     ],
-    
+
     footer: {
       about: [
         { name: 'About Us', href: '/about' },
+        { name: 'Track Order', href: '/track-order' },
         { name: 'Contact', href: '/contact' },
         { name: 'FAQ', href: '/faq' },
         { name: 'Privacy Policy', href: '/privacy' },
@@ -289,10 +291,10 @@ export default {
   images: {
     // Default placeholder images
     placeholder: '/images/placeholder.jpg',
-    
+
     // About section image
     aboutImage: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&h=600&fit=crop',
-    
+
     // Default food images (fallback)
     defaultFood: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop',
   },
@@ -307,7 +309,7 @@ export default {
       code: 'GBP',
       position: 'before', // 'before' or 'after'
     },
-    
+
     // Delivery
     delivery: {
       minOrder: 15, // Minimum order amount
@@ -315,7 +317,7 @@ export default {
       freeDeliveryAbove: 50, // Free delivery threshold
       estimatedTime: '30-45 mins',
     },
-    
+
     // App behavior
     behavior: {
       showPrices: true,

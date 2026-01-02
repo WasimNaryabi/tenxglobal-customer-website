@@ -239,6 +239,27 @@
                   <span :class="paymentMethod === 'cash' ? 'text-orange-500 font-bold' : 'text-gray-300'">Cash on {{ orderType === 'delivery' ? 'Delivery' : 'Pickup' }}</span>
                 </button>
               </div>
+
+              <!-- Stripe Payment Element -->
+              <div v-if="paymentMethod === 'card'" class="mt-6">
+                <div v-if="loadingPayment" class="flex flex-col items-center justify-center p-8 bg-gray-800 rounded-lg animate-pulse">
+                  <svg class="animate-spin w-8 h-8 text-orange-500 mb-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p class="text-gray-400 text-sm">Initializing secure payment...</p>
+                </div>
+                
+                <StripePayment
+                  v-if="clientSecret && !loadingPayment"
+                  ref="stripeRef"
+                  :client-secret="clientSecret"
+                  :public-key="stripePublicKey"
+                  @ready="isStripeReady = true"
+                  @processing="processing = $event"
+                  @error="handleStripeError"
+                />
+              </div>
             </div>
 
             <!-- Special Instructions -->
@@ -335,14 +356,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
+import axios from 'axios';
 import MainLayout from '@/Layouts/MainLayout.vue';
 import OrderConfirmationModal from '@/Components/OrderConfirmationModal.vue';
+import StripePayment from '@/Components/StripePayment.vue';
 import { useCartStore } from '@/Stores/cart';
 
-defineProps({
+const props = defineProps({
   auth: Object,
+  stripePublicKey: String,
 });
 
 const cartStore = useCartStore();
@@ -350,6 +374,12 @@ const orderType = ref('delivery');
 const paymentMethod = ref('card');
 const processing = ref(false);
 const showConfirmModal = ref(false);
+
+const stripeRef = ref(null);
+const clientSecret = ref(null);
+const loadingPayment = ref(false);
+const isStripeReady = ref(false);
+const paymentIntentId = ref(null);
 
 const form = ref({
   name: '',
@@ -369,8 +399,41 @@ onMounted(() => {
   if (cartStore.items.length === 0) {
     alert('Your cart is empty! Please add items before checkout.');
     router.visit('/menu');
+    return;
+  }
+  
+  if (paymentMethod.value === 'card') {
+    initStripe();
   }
 });
+
+const initStripe = async () => {
+  if (clientSecret.value || loadingPayment.value) return;
+  
+  loadingPayment.value = true;
+  try {
+    const totalAmount = calculateTotal() * 1.2; // Including VAT
+    const response = await axios.post('/checkout/create-payment-intent', {
+      amount: totalAmount.toFixed(2)
+    });
+    clientSecret.value = response.data.clientSecret;
+  } catch (error) {
+    console.error('Failed to create PaymentIntent:', error);
+    alert('Could not initialize card payment. Please try cash or refresh the page.');
+  } finally {
+    loadingPayment.value = false;
+  }
+};
+
+watch(paymentMethod, (newVal) => {
+  if (newVal === 'card' && !clientSecret.value) {
+    initStripe();
+  }
+});
+
+const handleStripeError = (msg) => {
+  console.error('Stripe Error:', msg);
+};
 
 const calculateTotal = () => {
   const subtotal = cartStore.total;
@@ -385,6 +448,10 @@ const isFormValid = computed(() => {
     if (!form.value.address1 || !form.value.city || !form.value.postcode) {
       return false;
     }
+  }
+
+  if (paymentMethod.value === 'card' && !isStripeReady.value) {
+    return false;
   }
   
   return true;
@@ -419,53 +486,64 @@ const placeOrder = async () => {
 const confirmOrder = async () => {
   showConfirmModal.value = false;
   processing.value = true;
-  
-  router.post('/checkout', {
-    orderType: orderType.value,
-    paymentMethod: paymentMethod.value,
-    items: cartStore.items.map(item => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      price: item.price,
-      quantity: item.quantity,
-      customizations: item.customizations || null,
-    })),
-    name: form.value.name,
-    phone: form.value.phone,
-    email: form.value.email,
-    address1: form.value.address1,
-    address2: form.value.address2,
-    city: form.value.city,
-    postcode: form.value.postcode,
-    instructions: form.value.instructions,
-    pickupTime: form.value.pickupTime,
-    specialInstructions: form.value.specialInstructions,
-  }, {
-    preserveScroll: true,
-    onSuccess: (page) => {
-      // Clear cart after successful order
-      cartStore.clearCart();
-    },
-    onError: (errors) => {
-      console.error('Order errors:', errors);
+
+  try {
+    // 1. If Card payment, confirm with Stripe first
+    if (paymentMethod.value === 'card' && stripeRef.value) {
+      const result = await stripeRef.value.confirmPayment();
       
-      // Show user-friendly error message
-      let errorMessage = 'Order failed. Please check:\n';
+      if (result.error) {
+        alert(result.error);
+        processing.value = false;
+        return;
+      }
       
-      if (errors.name) errorMessage += '- Name is required\n';
-      if (errors.phone) errorMessage += '- Valid UK phone number required\n';
-      if (errors.address1) errorMessage += '- Address is required\n';
-      if (errors.city) errorMessage += '- City is required\n';
-      if (errors.postcode) errorMessage += '- Postcode is required\n';
-      if (errors.items) errorMessage += '- Cart items are invalid\n';
-      
-      alert(errorMessage);
-    },
-    onFinish: () => {
-      processing.value = false;
+      paymentIntentId.value = result.paymentIntentId;
     }
-  });
+
+    // 2. Submit order to backend
+    router.post('/checkout', {
+      orderType: orderType.value,
+      paymentMethod: paymentMethod.value,
+      paymentIntentId: paymentIntentId.value,
+      items: cartStore.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity,
+        customizations: item.customizations || null,
+      })),
+      name: form.value.name,
+      phone: form.value.phone,
+      email: form.value.email,
+      address1: form.value.address1,
+      address2: form.value.address2,
+      city: form.value.city,
+      postcode: form.value.postcode,
+      instructions: form.value.instructions,
+      pickupTime: form.value.pickupTime,
+      specialInstructions: form.value.specialInstructions,
+    }, {
+      preserveScroll: true,
+      onSuccess: (page) => {
+        cartStore.clearCart();
+      },
+      onError: (errors) => {
+        console.error('Order errors:', errors);
+        let errorMessage = 'Order failed. Please check:\n';
+        Object.values(errors).forEach(err => errorMessage += `- ${err}\n`);
+        alert(errorMessage);
+      },
+      onFinish: () => {
+        processing.value = false;
+      }
+    });
+  } catch (err) {
+    console.error('Confirmation failed:', err);
+    alert('An unexpected error occurred. Please try again.');
+    processing.value = false;
+  }
 };
 </script>
 

@@ -21,7 +21,12 @@ use App\Http\Controllers\CheckoutController;
 // Checkout Routes
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+Route::post('/checkout/create-payment-intent', [CheckoutController::class, 'createPaymentIntent'])->name('checkout.payment-intent');
 Route::get('/order/{orderNumber}/confirmation', [CheckoutController::class, 'confirmation'])->name('order.confirmation');
+
+// Order Tracking Routes
+Route::get('/track-order', [\App\Http\Controllers\OrderTrackingController::class, 'index'])->name('order.track');
+Route::get('/api/track-order/{orderNumber}', [\App\Http\Controllers\OrderTrackingController::class, 'track'])->name('api.order.track');
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -39,12 +44,6 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/profile/addresses/{address}', [ProfileController::class, 'deleteAddress']);
 });
 
-// Checkout Route
-Route::get('/checkout', function () {
-    return Inertia::render('Checkout', [
-        'auth' => ['user' => Auth::user()],
-    ]);
-})->name('checkout');
 
 /*
 |--------------------------------------------------------------------------

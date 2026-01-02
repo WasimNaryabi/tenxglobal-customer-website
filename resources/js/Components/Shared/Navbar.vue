@@ -23,6 +23,7 @@
                 <li><a href="#pricing" @click="closeMobileMenu">Pricing</a></li>
                 <li><a href="#testimonials" @click="closeMobileMenu">Testimonials</a></li>
                 <li><a href="#partners" @click="closeMobileMenu">Partners</a></li>
+                <li><a href="/track-order" @click="closeMobileMenu">Track Order</a></li>
                 <li><a href="#contact" @click="closeMobileMenu">Contact</a></li>
                 <li class="nav-button-item">
                     <button @click="handleDemoClick" class="btn-demo">

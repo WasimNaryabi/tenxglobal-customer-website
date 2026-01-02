@@ -61,6 +61,7 @@
                     <li><a href="#">Documentation</a></li>
                     <li><a href="#">Video Tutorials</a></li>
                     <li><a href="#">Community Forum</a></li>
+                    <li><a href="/track-order">Track Order</a></li>
                     <li><a href="#">System Status</a></li>
                     <li><a href="#">Contact Support</a></li>
                 </ul>
