@@ -62,7 +62,7 @@ class OrderTrackingController extends Controller
     {
         try {
             // TODO: Move to .env
-            $posUrl = "http://localhost:8000/api/external/orders/{$posOrderId}/status";
+            $posUrl = "http://smashngrub.10xglobal.co.uk/api/external/orders/{$posOrderId}/status";
             
             $response = Http::timeout(5)->get($posUrl);
 

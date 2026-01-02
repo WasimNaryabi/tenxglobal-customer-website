@@ -203,7 +203,9 @@ class CheckoutController extends Controller
             ];
 
             // TODO: Move POS_URL to .env
-            $posUrl = 'http://localhost:8000/api/external/orders';
+            //$posUrl = 'http://localhost:8000/api/external/orders';
+
+            $posUrl = 'https://smashngrub.10xglobal.co.uk/api/external/orders';
             
             $response = \Illuminate\Support\Facades\Http::timeout(10)
                 ->retry(3, 100)
