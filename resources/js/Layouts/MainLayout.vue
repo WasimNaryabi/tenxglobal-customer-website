@@ -48,7 +48,7 @@
 
               <!-- User Menu -->
               <Link 
-                href="/profile" 
+                href="/portal/dashboard" 
                 class="flex items-center gap-2 text-white hover:text-orange-500 transition"
               >
                 <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">
@@ -149,7 +149,7 @@
             <div class="border-t border-gray-800 pt-4 px-4 space-y-3">
               <template v-if="$page.props.auth?.user">
                 <Link 
-                  href="/profile" 
+                  href="/portal/dashboard" 
                   @click="mobileMenuOpen = false"
                   class="flex items-center gap-3 text-white hover:text-orange-500 transition py-2"
                 >

@@ -18,6 +18,16 @@ use App\Http\Controllers\ProfileController;
 use Inertia\Inertia;
 use App\Http\Controllers\CheckoutController;
 
+require __DIR__.'/auth.php';
+
+// Redirect base 'dashboard' name to avoid RouteNotFoundException
+Route::get('/dashboard', function () {
+    if (Auth::guard('customer')->check()) {
+        return redirect()->route('portal.dashboard');
+    }
+    return redirect()->route('admin.dashboard');
+})->name('dashboard');
+
 // Checkout Routes
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
@@ -30,20 +40,36 @@ Route::get('/api/track-order/{orderNumber}', [\App\Http\Controllers\OrderTrackin
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/auth/send-otp', [AuthController::class, 'sendOTP']);
-Route::post('/auth/verify-otp', [AuthController::class, 'verifyOTP']);
-Route::post('/auth/complete-profile', [AuthController::class, 'completeProfile']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
+Route::post('/login', [AuthController::class, 'login']); 
+Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:customer')->name('logout');
+
+// Password Reset Routes
+Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+Route::post('/forgot-password', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+
+// OTP Routes (Deprecated/Disabled)
+// Route::post('/auth/send-otp', [AuthController::class, 'sendOTP']);
+// Route::post('/auth/verify-otp', [AuthController::class, 'verifyOTP']);
+// Route::post('/auth/complete-profile', [AuthController::class, 'completeProfile']);
+
 
 // Profile Routes
-Route::middleware(['auth'])->group(function () {
-    Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
-    Route::put('/profile', [ProfileController::class, 'update']);
-    Route::post('/profile/addresses', [ProfileController::class, 'storeAddress']);
-    Route::put('/profile/addresses/{address}', [ProfileController::class, 'updateAddress']);
-    Route::delete('/profile/addresses/{address}', [ProfileController::class, 'deleteAddress']);
+Route::middleware(['auth:customer'])->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\CustomerPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/profile', [App\Http\Controllers\CustomerPortalController::class, 'profile'])->name('profile');
+    Route::put('/profile', [App\Http\Controllers\CustomerPortalController::class, 'updateProfile'])->name('profile.update');
+    Route::put('/update-password', [App\Http\Controllers\CustomerPortalController::class, 'updatePassword'])->name('password.update');
+    Route::get('/orders', [App\Http\Controllers\CustomerPortalController::class, 'orders'])->name('orders');
+    
+    // Future routes
+    // Route::get('/subscription', [App\Http\Controllers\CustomerPortalController::class, 'subscription'])->name('subscription');
+    // Route::get('/invoices', [App\Http\Controllers\CustomerPortalController::class, 'invoices'])->name('invoices');
+    // Route::get('/support', [App\Http\Controllers\CustomerPortalController::class, 'support'])->name('support');
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -132,25 +158,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified'])->group(
 
 /*
 |--------------------------------------------------------------------------
-| Customer Portal Routes
+| Customer Portal Routes (Moved above to group with middleware)
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('portal')->name('portal.')->middleware(['auth:customer'])->group(function () {
-    
-    Route::get('/dashboard', [CustomerPortalController::class, 'dashboard'])->name('dashboard');
-    Route::get('/profile', [CustomerPortalController::class, 'profile'])->name('profile');
-    Route::put('/profile', [CustomerPortalController::class, 'updateProfile'])->name('profile.update');
-    Route::get('/subscription', [CustomerPortalController::class, 'subscription'])->name('subscription');
-    Route::get('/invoices', [CustomerPortalController::class, 'invoices'])->name('invoices');
-    Route::get('/support', [CustomerPortalController::class, 'support'])->name('support');
-    
-});
 
-/*
-|--------------------------------------------------------------------------
-| Authentication Routes
-|--------------------------------------------------------------------------
-*/
-
-require __DIR__.'/auth.php';

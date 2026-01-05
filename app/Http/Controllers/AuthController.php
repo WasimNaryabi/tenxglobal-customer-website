@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use Inertia\Inertia;
@@ -20,106 +24,61 @@ class AuthController extends Controller
     }
 
     /**
-     * Send OTP to UK phone number
+     * Show register page
      */
-    public function sendOTP(Request $request)
+    public function showRegister()
     {
-        $request->validate([
-            'phone' => ['required', 'regex:/^\+44[0-9]{10}$/'],
-        ]);
-
-        $phone = $request->phone;
-        
-        // Generate 6-digit OTP
-        $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-        
-        // Store OTP in cache for 5 minutes
-        Cache::put("otp_{$phone}", $otp, now()->addMinutes(5));
-        
-        // TODO: Send SMS using Twilio, Vonage, or AWS SNS
-        // For development, log the OTP
-        //Log::info("OTP for {$phone}: {$otp}");
-        
-        // For testing, also store in session
-        session(['dev_otp' => $otp]);
-        
-        return back()->with('success', 'OTP sent successfully');
+        return Inertia::render('Auth/Register');
     }
 
     /**
-     * Verify OTP and login/register user
+     * Handle Login
      */
-    public function verifyOTP(Request $request)
+    public function login(Request $request)
     {
-        $request->validate([
-            'phone' => ['required', 'regex:/^\+44[0-9]{10}$/'],
-            'otp' => ['required', 'digits:6'],
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
         ]);
 
-        $phone = $request->phone;
-        $otp = $request->otp;
-        
-        // Get stored OTP from cache
-        $storedOTP = Cache::get("otp_{$phone}");
-        
-        if (!$storedOTP || $storedOTP !== $otp) {
-            return back()->withErrors(['otp' => 'Invalid or expired OTP']);
+        if (Auth::guard('customer')->attempt($credentials, $request->remember)) {
+            $request->session()->regenerate();
+            
+            // update last login
+            $customer = Auth::guard('customer')->user();
+            $customer->last_login_at = now();
+            $customer->save();
+
+            return redirect()->intended('/portal/dashboard');
         }
-        
-        // Clear OTP from cache
-        Cache::forget("otp_{$phone}");
-        
-        // Find or create customer
-        $customer = Customer::where('phone', $phone)->first();
-        
-        if (!$customer) {
-            // New customer - needs profile completion
-            session(['pending_phone' => $phone]);
-            return Inertia::render('Auth/Login', [
-                'needsProfile' => true,
-            ]);
-        }
-        
-        // Login existing customer
-        Auth::guard('customer')->login($customer);
-        
-        return redirect()->intended('/');
+
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ])->onlyInput('email');
     }
 
     /**
-     * Complete profile for new user
+     * Handle Registration
      */
-    public function completeProfile(Request $request)
+    public function register(Request $request)
     {
         $request->validate([
-            'phone' => ['required', 'regex:/^\+44[0-9]{10}$/'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:customers'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:customers'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $phone = $request->phone;
-        
-        // Verify this phone was just verified
-        if (!session('pending_phone') || session('pending_phone') !== $phone) {
-            return back()->withErrors(['phone' => 'Invalid session']);
-        }
-        
-        // Create new customer
         $customer = Customer::create([
-            'phone' => $phone,
             'name' => $request->name,
             'email' => $request->email,
-            'phone_verified_at' => now(),
-            'status' => 'lead', // Default status for new signs ups
+            'password' => Hash::make($request->password),
+            'status' => 'active', // Direct active status for email signups
+            'source' => 'website_registration',
         ]);
-        
-        // Clear pending session
-        session()->forget('pending_phone');
-        
-        // Login customer
-        Auth::guard('customer')->login($customer);
-        
-        return redirect()->intended('/');
+
+        Auth::guard('customer')->login($customer, $request->remember ?? false);
+
+        return redirect('/portal/dashboard');
     }
 
     /**
@@ -132,5 +91,73 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
         
         return redirect('/');
+    }
+
+    /**
+     * Show forgot password form
+     */
+    public function showForgotPassword()
+    {
+        return Inertia::render('Auth/ForgotPassword');
+    }
+
+    /**
+     * Send reset link email
+     */
+    public function sendResetLinkEmail(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        \Illuminate\Support\Facades\Log::info('Password reset link requested for: ' . $request->email);
+        $status = Password::broker('customers')->sendResetLink(
+            $request->only('email')
+        );
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return Inertia::render('Auth/ForgotPassword', [
+                'status' => __($status)
+            ]);
+        }
+
+        return back()->withErrors(['email' => __($status)]);
+    }
+
+    /**
+     * Show reset password form
+     */
+    public function showResetPassword(Request $request, $token)
+    {
+        return Inertia::render('Auth/ResetPassword', [
+            'token' => $token,
+            'email' => $request->email,
+        ]);
+    }
+
+    /**
+     * Reset password
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $status = Password::broker('customers')->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('status', __($status))
+            : back()->withErrors(['email' => [__($status)]]);
     }
 }

@@ -20,7 +20,7 @@ class CheckoutController extends Controller
     {
         return Inertia::render('Checkout', [
             'auth' => [
-                'user' => Auth::user(),
+                'user' => Auth::guard('customer')->user() ?: Auth::user(),
             ],
             'stripePublicKey' => env('STRIPE_PUBLIC'),
         ]);
@@ -31,6 +31,9 @@ class CheckoutController extends Controller
      */
     public function store(Request $request)
     {
+        \Illuminate\Support\Facades\Log::info('--- CHECKOUT ATTEMPT ---');
+        \Illuminate\Support\Facades\Log::info('Request Data:', $request->all());
+
         try {
             $validated = $request->validate([
                 'orderType' => ['required', 'in:delivery,pickup'],
@@ -92,7 +95,7 @@ class CheckoutController extends Controller
 
             // Create order
             $order = Order::create([
-                'user_id' => Auth::id(),
+                'user_id' => Auth::guard('customer')->id() ?: Auth::id(),
                 'type' => $validated['orderType'],
                 'status' => 'pending',
                 'customer_name' => $validated['name'],
@@ -202,24 +205,36 @@ class CheckoutController extends Controller
                 'instructions' => $order->special_instructions,
             ];
 
-            // TODO: Move POS_URL to .env
-            $posUrl = 'http://localhost:8000/api/external/orders';
+            $posUrl = env('POS_URL', 'https://smashngrub.10xglobal.co.uk/api/external/orders');
             
-            $response = \Illuminate\Support\Facades\Http::timeout(10)
-                ->retry(3, 100)
-                ->post($posUrl, $posOrderData);
+            \Illuminate\Support\Facades\Log::info('Attempting POS sync to: ' . $posUrl);
+            \Illuminate\Support\Facades\Log::info('POS Payload:', $posOrderData);
 
-            if ($response?->successful()) {
-                $responseData = $response->json();
-                if (isset($responseData['pos_order_id'])) {
-                    $order->update(['pos_order_id' => $responseData['pos_order_id']]);
+            try {
+                $response = \Illuminate\Support\Facades\Http::timeout(30)
+                    ->withHeaders(['Accept' => 'application/json'])
+                    ->post($posUrl, $posOrderData);
+
+                if ($response && $response->successful()) {
+                    $responseData = $response->json();
+                    \Illuminate\Support\Facades\Log::info('POS sync successful:', (array)$responseData);
+                    if (isset($responseData['pos_order_id'])) {
+                        $order->update(['pos_order_id' => $responseData['pos_order_id']]);
+                    }
+                } else {
+                    $status = $response ? $response->status() : 'unknown';
+                    $body = $response ? $response->body() : 'no response body';
+                    \Illuminate\Support\Facades\Log::error("POS sync failed | Status: $status | Body: $body");
                 }
+            } catch (\Illuminate\Http\Client\RequestException $e) {
+                $status = $e->response ? $e->response->status() : 'unknown';
+                $body = $e->response ? $e->response->body() : 'no response body';
+                \Illuminate\Support\Facades\Log::error("POS sync Exception | Status: $status | Body: $body | Error: " . $e->getMessage());
             }
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to sync order to POS: ' . $e->getMessage());
-            // We don't block the customer checkout if POS sync fails, 
-            // but we should log it so admin can manually reconcile if needed.
+            \Illuminate\Support\Facades\Log::error('Failed to sync order to POS (General Exception): ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error($e->getTraceAsString());
         }
     }
 
