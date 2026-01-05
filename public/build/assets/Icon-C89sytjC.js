@@ -1,4 +1,4 @@
-import{_ as l}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{j as c,g as i,b as s,o as h}from"./app-BxtHwcB6.js";const n=["width","height"],k=["innerHTML"],d={__name:"Icon",props:{name:{type:String,required:!0},size:{type:[String,Number],default:24},color:{type:String,default:"currentColor"}},setup(r){const o=r,t=c(()=>({"cash-register":`
+import{_ as l}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{j as c,g as i,a as s,o as h}from"./app-Czfi8bIW.js";const n=["width","height"],k=["innerHTML"],d={__name:"Icon",props:{name:{type:String,required:!0},size:{type:[String,Number],default:24},color:{type:String,default:"currentColor"}},setup(r){const o=r,t=c(()=>({"cash-register":`
             <rect x="3" y="4" width="18" height="16" rx="2" stroke="${o.color}" stroke-width="2" fill="none"/>
             <path d="M7 8h10M7 12h10M7 16h6" stroke="${o.color}" stroke-width="2" stroke-linecap="round"/>
             <circle cx="17" cy="16" r="1" fill="${o.color}"/>
