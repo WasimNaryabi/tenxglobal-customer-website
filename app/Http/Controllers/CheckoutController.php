@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Address;
+use App\Models\Order;
+use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\Address;
-use Stripe\Stripe;
 use Stripe\PaymentIntent;
+use Stripe\Stripe;
 
 class CheckoutController extends Controller
 {
@@ -48,12 +48,12 @@ class CheckoutController extends Controller
                 'items.*.quantity' => ['required', 'integer', 'min:1'],
                 'items.*.customizations' => ['nullable', 'array'],
                 'items.*.description' => ['nullable', 'string'],
-                
+
                 // Delivery fields (required if delivery)
                 'address1' => ['required_if:orderType,delivery', 'nullable', 'string', 'max:255'],
                 'city' => ['required_if:orderType,delivery', 'nullable', 'string', 'max:255'],
                 'postcode' => ['required_if:orderType,delivery', 'nullable', 'string', 'max:20'],
-                
+
                 // Optional fields
                 'address2' => ['nullable', 'string', 'max:255'],
                 'instructions' => ['nullable', 'string'],
@@ -135,20 +135,21 @@ class CheckoutController extends Controller
                 try {
                     \Illuminate\Support\Facades\Mail::to($order->customer_email)->send(new \App\Mail\OrderConfirmation($order));
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Order confirmation email failed: ' . $e->getMessage());
+                    \Illuminate\Support\Facades\Log::error('Order confirmation email failed: '.$e->getMessage());
                 }
             }
 
             return redirect()->route('order.confirmation', ['orderNumber' => $order->order_number])
                 ->with('success', 'Order placed successfully!');
-                
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()
                 ->withErrors($e->errors())
                 ->withInput()
                 ->with('error', 'Please check the form and try again.');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Order creation failed: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Order creation failed: '.$e->getMessage());
+
             return back()
                 ->with('error', 'Order failed. Please try again or contact support.')
                 ->withInput();
@@ -204,10 +205,10 @@ class CheckoutController extends Controller
                 'delivery_address' => $order->delivery_address,
                 'instructions' => $order->special_instructions,
             ];
-
+            // https://smashngrub.10xglobal.co.uk/api/external/orders
             $posUrl = env('POS_URL', 'https://smashngrub.10xglobal.co.uk/api/external/orders');
-            
-            \Illuminate\Support\Facades\Log::info('Attempting POS sync to: ' . $posUrl);
+
+            \Illuminate\Support\Facades\Log::info('Attempting POS sync to: '.$posUrl);
             \Illuminate\Support\Facades\Log::info('POS Payload:', $posOrderData);
 
             try {
@@ -217,7 +218,7 @@ class CheckoutController extends Controller
 
                 if ($response && $response->successful()) {
                     $responseData = $response->json();
-                    \Illuminate\Support\Facades\Log::info('POS sync successful:', (array)$responseData);
+                    \Illuminate\Support\Facades\Log::info('POS sync successful:', (array) $responseData);
                     if (isset($responseData['pos_order_id'])) {
                         $order->update(['pos_order_id' => $responseData['pos_order_id']]);
                     }
@@ -229,11 +230,11 @@ class CheckoutController extends Controller
             } catch (\Illuminate\Http\Client\RequestException $e) {
                 $status = $e->response ? $e->response->status() : 'unknown';
                 $body = $e->response ? $e->response->body() : 'no response body';
-                \Illuminate\Support\Facades\Log::error("POS sync Exception | Status: $status | Body: $body | Error: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error("POS sync Exception | Status: $status | Body: $body | Error: ".$e->getMessage());
             }
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to sync order to POS (General Exception): ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Failed to sync order to POS (General Exception): '.$e->getMessage());
             \Illuminate\Support\Facades\Log::error($e->getTraceAsString());
         }
     }
@@ -251,7 +252,7 @@ class CheckoutController extends Controller
             Stripe::setApiKey(env('STRIPE_SECRET'));
 
             $paymentIntent = PaymentIntent::create([
-                'amount' => (int)($validated['amount'] * 100), // Convert to cents
+                'amount' => (int) ($validated['amount'] * 100), // Convert to cents
                 'currency' => 'gbp',
                 'automatic_payment_methods' => [
                     'enabled' => true,
@@ -262,7 +263,8 @@ class CheckoutController extends Controller
                 'clientSecret' => $paymentIntent->client_secret,
             ]);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('PaymentIntent creation failed: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('PaymentIntent creation failed: '.$e->getMessage());
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
