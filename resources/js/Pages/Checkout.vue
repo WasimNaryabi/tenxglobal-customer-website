@@ -352,6 +352,12 @@
       @close="showConfirmModal = false"
       @confirm="confirmOrder"
     />
+
+    <StoreStatusModal 
+      :is-open="showStatusModal"
+      :message="storeStatusMessage"
+      @confirm="redirectToMenu"
+    />
   </MainLayout>
 </template>
 
@@ -361,6 +367,7 @@ import { router, Link } from '@inertiajs/vue3';
 import axios from 'axios';
 import MainLayout from '@/Layouts/MainLayout.vue';
 import OrderConfirmationModal from '@/Components/OrderConfirmationModal.vue';
+import StoreStatusModal from '@/Components/StoreStatusModal.vue';
 import StripePayment from '@/Components/StripePayment.vue';
 import { useCartStore } from '@/Stores/cart';
 
@@ -374,6 +381,9 @@ const orderType = ref('delivery');
 const paymentMethod = ref('card');
 const processing = ref(false);
 const showConfirmModal = ref(false);
+const showStatusModal = ref(false);
+const isStoreOpen = ref(true);
+const storeStatusMessage = ref('');
 
 const stripeRef = ref(null);
 const clientSecret = ref(null);
@@ -394,18 +404,11 @@ const form = ref({
   specialInstructions: '',
 });
 
-// Check if cart is empty on mount
-onMounted(() => {
-  if (cartStore.items.length === 0) {
-    alert('Your cart is empty! Please add items before checkout.');
-    router.visit('/menu');
-    return;
-  }
-  
-  if (paymentMethod.value === 'card') {
-    initStripe();
-  }
-});
+const calculateTotal = () => {
+  const subtotal = cartStore.total;
+  const deliveryFee = orderType.value === 'delivery' ? 2.50 : 0;
+  return subtotal + deliveryFee;
+};
 
 const initStripe = async () => {
   if (clientSecret.value || loadingPayment.value) return;
@@ -425,6 +428,47 @@ const initStripe = async () => {
   }
 };
 
+const checkStoreStatus = async () => {
+  try {
+    const response = await axios.get('/checkout/status');
+    const data = response.data;
+    if (!data.can_order) {
+      isStoreOpen.value = false;
+      storeStatusMessage.value = data.message;
+      return false; // Not open
+    } else {
+        isStoreOpen.value = true;
+        storeStatusMessage.value = '';
+        return true; // Open
+    }
+  } catch (error) {
+    console.error('Store status check failed:', error);
+    // If check fails, we assume closed/error per user requirement ("if server is down... show nice message")
+    isStoreOpen.value = false;
+    storeStatusMessage.value = 'Store server is not responding. Please try again later.';
+    return false;
+  }
+};
+
+// Check if cart is empty on mount
+onMounted(async () => {
+  // Check store status immediately
+  await checkStoreStatus();
+  if (!isStoreOpen.value) {
+      showStatusModal.value = true;
+  }
+
+  if (cartStore.items.length === 0) {
+    alert('Your cart is empty! Please add items before checkout.');
+    router.visit('/menu');
+    return;
+  }
+  
+  if (paymentMethod.value === 'card') {
+    initStripe();
+  }
+});
+
 watch(paymentMethod, (newVal) => {
   if (newVal === 'card' && !clientSecret.value) {
     initStripe();
@@ -433,12 +477,6 @@ watch(paymentMethod, (newVal) => {
 
 const handleStripeError = (msg) => {
   console.error('Stripe Error:', msg);
-};
-
-const calculateTotal = () => {
-  const subtotal = cartStore.total;
-  const deliveryFee = orderType.value === 'delivery' ? 2.50 : 0;
-  return subtotal + deliveryFee;
 };
 
 const isFormValid = computed(() => {
@@ -466,6 +504,13 @@ const orderDetails = computed(() => ({
 }));
 
 const placeOrder = async () => {
+  // Final status check before proceeding
+  const isOpen = await checkStoreStatus();
+  if (!isOpen) {
+      showStatusModal.value = true;
+      return;
+  }
+
   // Check if cart is empty
   if (cartStore.items.length === 0) {
     alert('Your cart is empty! Please add items before placing an order.');
@@ -544,6 +589,10 @@ const confirmOrder = async () => {
     alert('An unexpected error occurred. Please try again.');
     processing.value = false;
   }
+};
+const redirectToMenu = () => {
+  showStatusModal.value = false;
+  router.visit('/menu');
 };
 </script>
 
