@@ -32,6 +32,7 @@ Route::get('/dashboard', function () {
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
 Route::post('/checkout/create-payment-intent', [CheckoutController::class, 'createPaymentIntent'])->name('checkout.payment-intent');
+Route::get('/checkout/status', [CheckoutController::class, 'checkStatus'])->name('checkout.status');
 Route::get('/order/{orderNumber}/confirmation', [CheckoutController::class, 'confirmation'])->name('order.confirmation');
 
 // Order Tracking Routes

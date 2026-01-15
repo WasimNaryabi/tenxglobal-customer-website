@@ -62,6 +62,16 @@ class CheckoutController extends Controller
                 'paymentIntentId' => ['required_if:paymentMethod,card', 'nullable', 'string'],
             ]);
 
+            // 1. Check Store Status (POS side)
+            $statusCheck = $this->checkStatus();
+            $statusData = is_array($statusCheck) ? $statusCheck : json_decode($statusCheck->getContent(), true);
+            
+            if (!($statusData['can_order'] ?? false)) {
+                return back()
+                    ->with('error', $statusData['message'] ?? 'Store is currently not accepting orders.')
+                    ->withInput();
+            }
+
             // Calculate totals
             $subtotal = collect($validated['items'])->sum(function ($item) {
                 return $item['price'] * $item['quantity'];
@@ -205,7 +215,10 @@ class CheckoutController extends Controller
                 'instructions' => $order->special_instructions,
             ];
 
-            $posUrl = env('POS_URL', 'https://smashngrub.10xglobal.co.uk/api/external/orders');
+            // TODO: Move POS_URL to .env
+            // $posUrl = 'http://127.0.0.1:8000/api/external/orders';
+
+            $posUrl = 'https://smashngrub.10xglobal.co.uk/api/external/orders';
             
             \Illuminate\Support\Facades\Log::info('Attempting POS sync to: ' . $posUrl);
             \Illuminate\Support\Facades\Log::info('POS Payload:', $posOrderData);
@@ -290,5 +303,36 @@ class CheckoutController extends Controller
         return Inertia::render('OrderConfirmation', [
             'order' => $order,
         ]);
+    }
+    /**
+     * Check store status (Proxy to POS)
+     */
+    public function checkStatus()
+    {
+        try {
+            // Use the same URL base as syncOrderToPOS
+            // For testing as requested by user, we use localhost
+            // $posUrl = 'http://127.0.0.1:8000/api/shop-status';
+            $posUrl = 'https://smashngrub.10xglobal.co.uk/api/shop-status';
+            
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->get($posUrl);
+            
+            if ($response->successful()) {
+                return $response->json();
+            }
+            
+            return response()->json([
+                'can_order' => false,
+                'message' => 'Store server is not responding. Please try again later or call the restaurant.',
+                'debug' => $response->status()
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'can_order' => false,
+                'message' => 'Unable to connect to store services. Please try again later.',
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }
