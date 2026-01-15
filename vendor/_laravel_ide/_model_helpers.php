@@ -3197,6 +3197,7 @@ namespace App\Models {
      * @property int|null $pos_order_id
      * @property int $id
      * @property-read \App\Models\User $user
+     * @property-read \App\Models\Customer $customer
      * @property-read \App\Models\Address $address
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItem> $items
      * @property-read int|null $items_count

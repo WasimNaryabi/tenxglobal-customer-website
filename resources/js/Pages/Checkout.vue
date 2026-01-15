@@ -101,13 +101,28 @@
                 </div>
               </div>
 
-              <div v-else class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-white font-semibold">{{ auth.user.name }}</p>
-                    <p class="text-sm text-gray-400">{{ auth.user.phone }}</p>
+              <div v-else class="space-y-4">
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-white font-semibold">{{ auth.user.name }}</p>
+                      <p class="text-sm text-gray-400" v-if="auth.user.phone">{{ auth.user.phone }}</p>
+                      <p class="text-xs text-red-500 mt-1" v-else>Phone number required</p>
+                    </div>
+                    <Link href="/portal/profile" class="text-orange-500 hover:text-orange-600 text-sm">Edit Profile</Link>
                   </div>
-                  <Link href="/profile" class="text-orange-500 hover:text-orange-600 text-sm">Edit</Link>
+                </div>
+
+                <!-- Show phone input if missing -->
+                <div v-if="!auth.user.phone">
+                  <label class="block text-sm font-semibold text-gray-300 mb-2">UK Phone Number *</label>
+                  <input 
+                    v-model="form.phone"
+                    type="tel" 
+                    class="w-full px-4 py-3 bg-black border border-gray-800 text-white rounded-lg focus:outline-none focus:border-orange-500"
+                    placeholder="07123456789"
+                  >
+                  <p class="text-xs text-gray-500 mt-1">We need this for delivery/pickup updates</p>
                 </div>
               </div>
             </div>

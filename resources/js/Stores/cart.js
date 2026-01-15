@@ -1,9 +1,25 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 
 export const useCartStore = defineStore('cart', () => {
   const items = ref([]);
   const isOpen = ref(false);
+
+  // Load cart from localStorage on initialization
+  const savedCart = localStorage.getItem('cart_items');
+  if (savedCart) {
+    try {
+      items.value = JSON.parse(savedCart);
+    } catch (e) {
+      console.error('Failed to parse saved cart:', e);
+      localStorage.removeItem('cart_items');
+    }
+  }
+
+  // Watch for changes and save to localStorage
+  watch(items, (newItems) => {
+    localStorage.setItem('cart_items', JSON.stringify(newItems));
+  }, { deep: true });
 
   const itemCount = computed(() => {
     return items.value.reduce((total, item) => total + item.quantity, 0);

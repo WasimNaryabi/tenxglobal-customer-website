@@ -13,6 +13,7 @@ class Customer extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'password',
         'phone',
         'company_name',
         'business_type',
@@ -39,6 +40,7 @@ class Customer extends Authenticatable
     ];
 
     protected $hidden = [
+        'password',
         'remember_token',
     ];
 
@@ -53,7 +55,7 @@ class Customer extends Authenticatable
 
     public function orders()
     {
-        return $this->hasMany(Order::class);
+        return $this->hasMany(Order::class, 'user_id');
     }
 
     public function getDefaultAddressAttribute()
